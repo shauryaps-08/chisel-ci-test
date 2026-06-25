@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: morphingmachines/playground
+          path: playground
+          submodules: false
+
+      - name: Fix SSH URLs
+        working-directory: playground
+        run: |
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+          git submodule sync
+          git submodule update --init --recursive
+
+      - uses: actions/checkout@v4
+        with:
+          path: myproject
+
+      - uses: cachix/install-nix-action@v22
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Build and Test
+        run: |
+          cd myproject
+          nix develop ../playground -c make check
