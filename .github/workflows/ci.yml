@@ -14,18 +14,13 @@ jobs:
         working-directory: playground
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
           sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
           git submodule sync
-          git submodule update --init --depth=1 -- \
-            dependencies/rocket-chip \
-            dependencies/rocket-chip-blocks \
-            dependencies/rocket-chip-fpga-shells \
-            dependencies/rocket-chip-inclusive-cache \
-            dependencies/testchipip
-          find . -name ".gitmodules" -exec sed -i 's|git@github.com:|https://github.com/|g' {} \;
-          git submodule foreach git submodule sync
-          git submodule foreach git submodule update --init --depth=1
+          git submodule update --init --depth=1 dependencies/cde
+          git submodule update --init --depth=1 dependencies/diplomacy
+          git submodule update --init --depth=1 dependencies/berkeley-hardfloat
+          git submodule update --init --depth=1 dependencies/rocket-chip
+          git submodule update --init --depth=1 dependencies/emitrtl
 
       - uses: actions/checkout@v4
         with:
@@ -37,15 +32,20 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Install Mill
+        run: |
+          curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
+          chmod +x mill
+          sudo mv mill /usr/local/bin/mill
+          echo "0.11.6" > playground/.mill-version
+
       - name: Install firtool
         run: |
           wget https://github.com/llvm/circt/releases/download/firtool-1.62.1/circt-full-shared-linux-x64.tar.gz
           tar -xzf circt-full-shared-linux-x64.tar.gz
-          ls -la
-          echo "$GITHUB_WORKSPACE/circt-full-shared-linux-x64/bin" >> $GITHUB_PATH
-
-      - name: Verify firtool
-        run: firtool --version
+          sudo cp circt-full-shared-linux-x64/bin/firtool /usr/local/bin/firtool
+          sudo chmod +x /usr/local/bin/firtool
+          firtool --version
 
       - name: Run tests
         working-directory: myproject
