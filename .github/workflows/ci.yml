@@ -20,8 +20,8 @@ jobs:
           git submodule update --init
           find . -name ".gitmodules" -exec sed -i 's|git@github.com:|https://github.com/|g' {} \;
           git submodule foreach --recursive git submodule sync
-          git submodule update --init --recursive
-
+          git submodule update --init --recursive --depth=1
+      
       - uses: actions/checkout@v4
         with:
           path: myproject
