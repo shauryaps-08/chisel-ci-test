@@ -24,8 +24,8 @@ jobs:
             dependencies/rocket-chip-inclusive-cache \
             dependencies/testchipip
           find . -name ".gitmodules" -exec sed -i 's|git@github.com:|https://github.com/|g' {} \;
-          git submodule foreach --recursive git submodule sync
-          git submodule update --init --recursive --depth=1
+          git submodule foreach git submodule sync
+          git submodule foreach git submodule update --init --depth=1
 
       - uses: actions/checkout@v4
         with:
