@@ -15,8 +15,11 @@ jobs:
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+          git submodule sync
+          git submodule update --init
           find . -name ".gitmodules" -exec sed -i 's|git@github.com:|https://github.com/|g' {} \;
-          git submodule sync --recursive
+          git submodule foreach --recursive git submodule sync
           git submodule update --init --recursive
 
       - uses: actions/checkout@v4
@@ -24,7 +27,7 @@ jobs:
           path: myproject
 
       - name: Install Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
