@@ -9,7 +9,7 @@ MILL = ./../playground/mill
 # Targets
 rtl: check-firtool ## Generates Verilog code from Chisel sources (output to ./generated_sv_dir)
 	$(MILL) $(project).runMain myproject.gcd8
-	$(MILL) $(project).runMain myproject.GenFullAdder
+	
 
 check: test
 .PHONY: test
