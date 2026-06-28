@@ -1,4 +1,5 @@
 package myproject
+
 import chisel3._
 
 class FullAdder extends Module {
@@ -10,10 +11,9 @@ class FullAdder extends Module {
     val cout = Output(UInt(1.W))
   })
 
-  // The "+" operator adds the values and automatically computes the sum and carry bits
-  // We extract them using bit extraction (.asUInt or casting)
-  val result = io.a + io.b + io.cin
-  
+  val result = Wire(UInt(2.W))
+  result := io.a +& io.b +& io.cin  // +& prevents truncation, keeps carry
+
   io.sum  := result(0)
   io.cout := result(1)
 }
