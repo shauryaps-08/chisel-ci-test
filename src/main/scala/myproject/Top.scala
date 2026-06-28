@@ -16,6 +16,12 @@ object gcd8 extends App with emitrtl.Toplevel {
 
 }
 
+object fullAdder extends App with emitrtl.Toplevel {
+  lazy val topModule = new FullAdder
+  chisel2firrtl()
+  firrtl2sv()
+}
+
 /** To run from a terminal shell
   * {{{
   * ./mill gcd.runMain gcd.gcd16
