@@ -1,8 +1,0 @@
-
-      [
-        {
-		      "class": "sifive.enterprise.firrtl.ModuleHierarchyAnnotation",
-		      "filename": "/home/shauryaps/chisel-ci-test/generated_sv_dir/myproject.DecoupledGcd.None/top_module_hierarchy.json"
-	      }
-      ]
-      
