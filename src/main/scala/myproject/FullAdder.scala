@@ -13,6 +13,6 @@ class FullAdder extends Module {
   // We extract them using bit extraction (.asUInt or casting)
   val result = io.a + io.b + io.cin
   
-  io.sum  := result(0
-  io.cout := result(1
+  io.sum  := result(0)
+  io.cout := result(1)
 }
