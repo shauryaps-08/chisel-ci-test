@@ -1,3 +1,4 @@
+package myproject
 import chisel3._
 
 class FullAdder extends Module {
