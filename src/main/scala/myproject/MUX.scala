@@ -9,5 +9,5 @@ class Mux2to1 extends Module {
   })
 
   // Mux(condition, true_case, false_case)
-  io.out := Mux(io.sel: io.in1, io.in0)
+  io.out := Mux(io.sel, io.in1, io.in0)
 }
