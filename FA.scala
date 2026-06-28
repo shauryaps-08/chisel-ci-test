@@ -14,5 +14,5 @@ class FullAdder extends Module {
   val result = io.a + io.b + io.cin
   
   io.sum  := result(0)
-  io.cout := result(1)
+  io.cout := result(1
 }
