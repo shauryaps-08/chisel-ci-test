@@ -96,6 +96,4 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and 
 
 ---
 
-## Part of CVS Flagship Project
 
-This repository is the Chisel/RTL component of a larger processor design project. The AURA-32 — a custom 32-bit RISC processor with a 7-stage pipeline — is being developed alongside this CI infrastructure.
