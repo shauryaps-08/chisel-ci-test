@@ -41,16 +41,21 @@ jobs:
 
       - name: Install firtool
         run: |
-          wget https://github.com/llvm/circt/releases/download/firtool-1.62.1/circt-full-shared-linux-x64.tar.gz
-          tar -xzf circt-full-shared-linux-x64.tar.gz
-          sudo cp circt-full-shared-linux-x64/bin/firtool /usr/local/bin/firtool
+          FIRTOOL_VER="firtool-1.62.1"
+          wget -q "https://github.com/llvm/circt/releases/download/${FIRTOOL_VER}/firrtl-bin-linux-x64.tar.gz"
+          tar -xzf firrtl-bin-linux-x64.tar.gz
+          sudo mv "${FIRTOOL_VER}/bin/firtool" /usr/local/bin/firtool
           sudo chmod +x /usr/local/bin/firtool
           firtool --version
 
       - name: Run tests
         working-directory: myproject
+        env:
+          JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make check
 
       - name: Generate RTL
         working-directory: myproject
+        env:
+          JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make rtl
