@@ -39,6 +39,7 @@ jobs:
           chmod +x mill
           sudo mv mill /usr/local/bin/mill
           echo "0.11.6" > playground/.mill-version
+          echo "0.11.6" > myproject/.mill-version
 
       - name: Install firtool
         run: |
