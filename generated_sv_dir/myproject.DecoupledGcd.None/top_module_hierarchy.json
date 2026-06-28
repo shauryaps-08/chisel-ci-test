@@ -1,0 +1,11 @@
+{
+  "instance_name": "DecoupledGcd",
+  "module_name": "DecoupledGcd",
+  "instances": [
+    {
+      "instance_name": "impl",
+      "module_name": "SimTimeImpl",
+      "instances": []
+    }
+  ]
+}
