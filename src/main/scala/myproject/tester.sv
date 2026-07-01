@@ -9,7 +9,7 @@ module d_flip_flop (
     // sequential logic block triggered by clock or reset edges
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            q <= 1'b0;    // Clear output on reset
+            a <= 1'b0;    // Clear output on reset
         end else begin
             q <= d;       // Latch data input on positive clock edge
         end
