@@ -33,6 +33,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Cache Mill dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/mill
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: ${{ runner.os }}-mill-${{ hashFiles('myproject/build.sc') }}
+          restore-keys: |
+            ${{ runner.os }}-mill-
+
       - name: Install Mill
         run: |
           curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
@@ -41,12 +52,20 @@ jobs:
           echo "0.11.6" > playground/.mill-version
           echo "0.11.6" > myproject/.mill-version
 
+      - name: Cache firtool
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/firtool
+          key: firtool-1.62.1
+
       - name: Install firtool
         run: |
-          wget -q https://github.com/llvm/circt/releases/download/firtool-1.62.1/firrtl-bin-linux-x64.tar.gz
-          tar -xzf firrtl-bin-linux-x64.tar.gz
-          sudo mv firtool-1.62.1/bin/firtool /usr/local/bin/firtool
-          sudo chmod +x /usr/local/bin/firtool
+          if ! command -v firtool &> /dev/null; then
+            wget -q https://github.com/llvm/circt/releases/download/firtool-1.62.1/firrtl-bin-linux-x64.tar.gz
+            tar -xzf firrtl-bin-linux-x64.tar.gz
+            sudo mv firtool-1.62.1/bin/firtool /usr/local/bin/firtool
+            sudo chmod +x /usr/local/bin/firtool
+          fi
           firtool --version
 
       - name: Compile all sources
@@ -67,9 +86,28 @@ jobs:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make rtl
 
+      - name: Install Verilator
+        run: sudo apt-get install -y verilator
+
+      - name: Lint RTL
+        working-directory: myproject
+        run: |
+          find generated_sv_dir -name "*.sv" | while read f; do
+            echo "Linting $f"
+            verilator --lint-only --language 1800-2012 "$f" || exit 1
+          done
+
       - name: Upload generated RTL
         uses: actions/upload-artifact@v4
         with:
           name: generated-rtl
           path: myproject/generated_sv_dir/
           if-no-files-found: warn
+
+      - name: Report
+        if: always()
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- RTL artifact: generated-rtl" >> $GITHUB_STEP_SUMMARY
