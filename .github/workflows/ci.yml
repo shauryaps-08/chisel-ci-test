@@ -93,14 +93,9 @@ jobs:
         working-directory: myproject
         run: |
           find generated_sv_dir -name "*.sv" \
-            ! -name "SimTimeImpl.sv" \
             ! -name "extern_modules.sv" \
             | tr '\n' ' ' \
-            | xargs verilator --lint-only \
-              --language 1800-2012 \
-              --bbox-unsup \
-              --bbox-sys \
-              --top-module DecoupledGcd
+            | xargs verilator --lint-only --language 1800-2012
 
       - name: Upload generated RTL
         uses: actions/upload-artifact@v4
