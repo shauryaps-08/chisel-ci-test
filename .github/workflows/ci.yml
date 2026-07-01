@@ -96,9 +96,11 @@ jobs:
             ! -name "SimTimeImpl.sv" \
             ! -name "extern_modules.sv" \
             | tr '\n' ' ' \
-            | xargs verilator --lint-only --language 1800-2012 \
+            | xargs verilator --lint-only \
+              --language 1800-2012 \
               --bbox-unsup \
-              --bbox-sys
+              --bbox-sys \
+              --top-module DecoupledGcd
 
       - name: Upload generated RTL
         uses: actions/upload-artifact@v4
