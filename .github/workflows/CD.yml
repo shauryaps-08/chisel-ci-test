@@ -1,0 +1,115 @@
+
+name: CD
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to use when running manually (e.g. v0.1.0-manual)'
+        required: true
+        default: 'manual-build'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: rtl-release
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v4
+        with:
+          repository: morphingmachines/playground
+          path: playground
+
+      - name: Fix SSH URLs and fetch submodules
+        working-directory: playground
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+          git submodule sync
+          git submodule update --init --depth=1 dependencies/cde
+          git submodule update --init --depth=1 dependencies/diplomacy
+          git submodule update --init --depth=1 dependencies/berkeley-hardfloat
+          git submodule update --init --depth=1 dependencies/rocket-chip
+          git submodule update --init --depth=1 dependencies/emitrtl
+          git submodule update --init --depth=1 dependencies/chipyard
+
+      - name: Checkout myproject
+        uses: actions/checkout@v4
+        with:
+          path: myproject
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Mill dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/mill
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: ${{ runner.os }}-mill-${{ hashFiles('myproject/build.sc') }}
+          restore-keys: |
+            ${{ runner.os }}-mill-
+
+      - name: Install Mill
+        run: |
+          curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
+          chmod +x mill
+          sudo mv mill /usr/local/bin/mill
+          echo "0.11.6" > playground/.mill-version
+          echo "0.11.6" > myproject/.mill-version
+
+      - name: Cache firtool
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/firtool
+          key: firtool-1.62.1
+
+      - name: Install firtool
+        run: |
+          if ! command -v firtool &> /dev/null; then
+            wget -q https://github.com/llvm/circt/releases/download/firtool-1.62.1/firrtl-bin-linux-x64.tar.gz
+            tar -xzf firrtl-bin-linux-x64.tar.gz
+            sudo mv firtool-1.62.1/bin/firtool /usr/local/bin/firtool
+            sudo chmod +x /usr/local/bin/firtool
+          fi
+          firtool --version
+
+      - name: Generate RTL
+        working-directory: myproject
+        env:
+          JAVA_OPTS: "-Xmx4g -Xss8m"
+        run: make rtl
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag_name=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package RTL
+        working-directory: myproject
+        run: |
+          if [ ! -d generated_sv_dir ] || [ -z "$(find generated_sv_dir -name '*.sv' -print -quit)" ]; then
+            echo "No .sv files were generated — aborting release."
+            exit 1
+          fi
+          zip -r ../generated-rtl-${{ steps.tag.outputs.tag_name }}.zip generated_sv_dir/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          name: RTL Release ${{ steps.tag.outputs.tag_name }}
+          files: generated-rtl-*.zip
+          generate_release_notes: true
