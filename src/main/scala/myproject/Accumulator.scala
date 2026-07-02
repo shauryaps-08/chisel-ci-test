@@ -22,6 +22,8 @@ class Accumulator(val bitWidth: Int = 4) extends Module {
 }
 
 // Object to generate the SystemVerilog output
-object AccumulatorMain extends App {
-  emitVerilog(new Accumulator(4))
+object AccumulatorMain extends App with emitrtl.Toplevel {
+  lazy val topModule = new Accumulator(4)
+  chisel2firrtl()
+  firrtl2sv()
 }
