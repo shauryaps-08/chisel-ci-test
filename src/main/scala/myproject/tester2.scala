@@ -1,3 +1,4 @@
+package myproject
 import chisel3._
 
 // A parameterized Accumulator module
@@ -21,6 +22,6 @@ class Accumulator(val bitWidth: Int = 4) extends Module {
 }
 
 // Object to generate the SystemVerilog output
-object Main extends App {
+object AccumulatorMain extends App {
   emitVerilog(new Accumulator(4))
 }
