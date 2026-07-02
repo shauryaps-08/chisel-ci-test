@@ -129,12 +129,12 @@ jobs:
             echo "No .sv files were generated — aborting release."
             exit 1
           fi
-          zip -r ../generated-rtl-${{ steps.tag.outputs.tag_name }}.zip generated_sv_dir/
+          tar -czvf ../generated-rtl-${{ steps.tag.outputs.tag_name }}.tar.gz generated_sv_dir/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           name: RTL Release ${{ steps.tag.outputs.tag_name }}
-          files: generated-rtl-*.zip
+          files: generated-rtl-*.tar.gz
           generate_release_notes: true
