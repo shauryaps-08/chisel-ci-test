@@ -7,6 +7,9 @@ on:
       - completed
     branches:
       - main
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -16,18 +19,33 @@ on:
 
 jobs:
   release:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: production
     concurrency: rtl-release
+    permissions:
+      contents: write
     steps:
+      - name: Get playground commit SHA
+        id: playground-sha
+        run: echo "sha=$(git ls-remote https://github.com/morphingmachines/playground main | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache playground (with submodules)
+        id: cache-playground
+        uses: actions/cache@v4
+        with:
+          path: playground
+          key: playground-${{ steps.playground-sha.outputs.sha }}
+
       - name: Checkout playground
+        if: steps.cache-playground.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: morphingmachines/playground
           path: playground
 
       - name: Fix SSH URLs and fetch submodules
+        if: steps.cache-playground.outputs.cache-hit != 'true'
         working-directory: playground
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -43,6 +61,7 @@ jobs:
       - name: Checkout myproject
         uses: actions/checkout@v4
         with:
+          ref: main
           path: myproject
 
       - name: Install Java
@@ -97,8 +116,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag_name=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "${{ github.event_name }}" = "push" ]; then
             echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=auto-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Package RTL
