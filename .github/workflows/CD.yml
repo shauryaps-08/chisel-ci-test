@@ -20,7 +20,7 @@ on:
 jobs:
   release:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     concurrency: rtl-release
     permissions:
@@ -64,12 +64,6 @@ jobs:
           ref: main
           path: myproject
 
-      - name: Install Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
       - name: Cache Mill dependencies
         uses: actions/cache@v4
         with:
@@ -81,29 +75,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
-      - name: Install Mill
+      - name: Set Mill version files
         run: |
-          curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
-          chmod +x mill
-          sudo mv mill /usr/local/bin/mill
           echo "0.11.6" > playground/.mill-version
           echo "0.11.6" > myproject/.mill-version
-
-      - name: Cache firtool
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/bin/firtool
-          key: firtool-1.62.1
-
-      - name: Install firtool
-        run: |
-          if ! command -v firtool &> /dev/null; then
-            wget -q https://github.com/llvm/circt/releases/download/firtool-1.62.1/firrtl-bin-linux-x64.tar.gz
-            tar -xzf firrtl-bin-linux-x64.tar.gz
-            sudo mv firtool-1.62.1/bin/firtool /usr/local/bin/firtool
-            sudo chmod +x /usr/local/bin/firtool
-          fi
-          firtool --version
 
       - name: Generate RTL
         working-directory: myproject
