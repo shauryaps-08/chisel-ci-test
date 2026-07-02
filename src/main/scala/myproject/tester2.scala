@@ -9,7 +9,7 @@ class Accumulator(val bitWidth: Int = 4) extends Module {
     val out    = Output(UInt(bitWidth.W))
   })
 
-  // Register initialized to 0 on rese
+  // Register initialized to 0 on reset
   val countReg = RegInit(0.U(bitWidth.W))
 
   // Conditional combinational logic
