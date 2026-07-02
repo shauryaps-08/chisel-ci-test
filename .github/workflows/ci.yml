@@ -1,14 +1,15 @@
 name: CI
 on: [push, pull_request]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout playground
+        uses: actions/checkout@v4
         with:
           repository: morphingmachines/playground
           path: playground
-          submodules: false
 
       - name: Fix SSH URLs and fetch submodules
         working-directory: playground
@@ -23,7 +24,8 @@ jobs:
           git submodule update --init --depth=1 dependencies/emitrtl
           git submodule update --init --depth=1 dependencies/chipyard
 
-      - uses: actions/checkout@v4
+      - name: Checkout myproject
+        uses: actions/checkout@v4
         with:
           path: myproject
 
@@ -68,54 +70,19 @@ jobs:
           fi
           firtool --version
 
-      - name: Compile all sources
+      - name: make check
         working-directory: myproject
         env:
           JAVA_OPTS: "-Xmx4g -Xss8m"
-        run: mill myproject.compile
+        run: make check
 
-      - name: Run tests
+      - name: make lint
         working-directory: myproject
-        env:
-          JAVA_OPTS: "-Xmx4g -Xss8m"
-        run: mill myproject.test
+        run: make lint
 
-      - name: Generate RTL
-        working-directory: myproject
-        env:
-          JAVA_OPTS: "-Xmx4g -Xss8m"
-        run: make rtl
-        
-      - name: Debug - list generated files
-        working-directory: myproject
-        run: |
-          echo "Contents of myproject:"
-          find . -name "*.sv" -o -name "*.v" 2>/dev/null | head -50
-          echo "---"
-          ls -la generated_sv_dir 2>/dev/null || echo "generated_sv_dir does not exist"
-          
-      - name: Install Verilator
-        run: sudo apt-get install -y verilator
-
-      - name: Lint RTL
-        working-directory: myproject
-        run: |
-          find generated_sv_dir -name "*.sv" \
-            ! -name "extern_modules.sv" \
-            | tr '\n' ' ' \
-            | xargs verilator --lint-only --language 1800-2012
-
-      - name: Upload generated RTL
+      - name: Upload test_run_dir
         uses: actions/upload-artifact@v4
         with:
-          name: generated-rtl
-          path: myproject/generated_sv_dir/
+          name: test-run-dir
+          path: myproject/test_run_dir/
           if-no-files-found: warn
-
-      - name: Report
-        if: always()
-        run: |
-          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- RTL artifact: generated-rtl" >> $GITHUB_STEP_SUMMARY
