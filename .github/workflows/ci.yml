@@ -80,9 +80,4 @@ jobs:
         working-directory: myproject
         run: make lint
 
-      - name: Upload test_run_dir
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-run-dir
-          path: myproject/test_run_dir/
-          if-no-files-found: warn
+      
