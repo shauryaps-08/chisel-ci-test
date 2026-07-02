@@ -85,7 +85,15 @@ jobs:
         env:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make rtl
-
+        
+      - name: Debug - list generated files
+        working-directory: myproject
+        run: |
+          echo "Contents of myproject:"
+          find . -name "*.sv" -o -name "*.v" 2>/dev/null | head -50
+          echo "---"
+          ls -la generated_sv_dir 2>/dev/null || echo "generated_sv_dir does not exist"
+          
       - name: Install Verilator
         run: sudo apt-get install -y verilator
 
