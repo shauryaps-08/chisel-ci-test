@@ -17,7 +17,7 @@ class Accumulator(val bitWidth: Int = 4) extends Module {
     countReg := countReg + io.dataIn
   }
 
-  // Assign register output to the I/O port
+  // Assign register output to the I/O ports
   io.out := countReg
 }
 
