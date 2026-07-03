@@ -26,38 +26,26 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Get playground commit SHA
-        id: playground-sha
-        run: echo "sha=$(git ls-remote https://github.com/morphingmachines/playground main | cut -f1)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache playground (with submodules)
-        id: cache-playground
-        uses: actions/cache@v4
-        with:
-          path: playground
-          key: playground-${{ steps.playground-sha.outputs.sha }}
-
-      - name: Checkout playground
-        if: steps.cache-playground.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: morphingmachines/playground
-          path: playground
-
-      - name: Fix SSH URLs and fetch submodules
-        if: steps.cache-playground.outputs.cache-hit != 'true'
-        working-directory: playground
+      - name: Use pre-cloned playground from AMI
         run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
-          git submodule sync
-          git submodule update --init --depth=1 dependencies/cde
-          git submodule update --init --depth=1 dependencies/diplomacy
-          git submodule update --init --depth=1 dependencies/berkeley-hardfloat
-          git submodule update --init --depth=1 dependencies/rocket-chip
-          git submodule update --init --depth=1 dependencies/emitrtl
-          git submodule update --init --depth=1 dependencies/chipyard
-
+          if [ -d /opt/playground ]; then
+            echo "Using pre-baked playground from AMI"
+            cp -r /opt/playground playground
+          else
+            echo "AMI playground not found, falling back to fresh clone"
+            git config --global url."https://github.com/".insteadOf "git@github.com:"
+            git clone https://github.com/morphingmachines/playground.git playground
+            cd playground
+            sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+            git submodule sync
+            git submodule update --init --depth=1 dependencies/cde
+            git submodule update --init --depth=1 dependencies/diplomacy
+            git submodule update --init --depth=1 dependencies/berkeley-hardfloat
+            git submodule update --init --depth=1 dependencies/rocket-chip
+            git submodule update --init --depth=1 dependencies/emitrtl
+            git submodule update --init --depth=1 dependencies/chipyard
+          fi      
       - name: Checkout myproject
         uses: actions/checkout@v4
         with:
