@@ -29,6 +29,14 @@ jobs:
         with:
           path: myproject
 
+      - name: Cache Mill compiled output
+        uses: actions/cache@v4
+        with:
+          path: myproject/out
+          key: mill-out-${{ runner.os }}-${{ hashFiles('playground/dependencies/**/*.scala', 'myproject/build.sc') }}
+          restore-keys: |
+            mill-out-${{ runner.os }}-
+
       - name: Install Java
         uses: actions/setup-java@v4
         with:
