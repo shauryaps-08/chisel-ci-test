@@ -87,15 +87,40 @@ class PipelineCpu extends Module {
   val rawA = regFile.read(rs1)
   val rawB = regFile.read(rs2)
 
-  // Hazard detection: stall one cycle on load-use
+  // ---- ID-stage forwarding ----
+  // regFile.read() only reflects committed (written-back) values. Any register
+  // that is still "in flight" in EX or MEM must be forwarded here, otherwise an
+  // instruction reading that register in ID (e.g. STORE reading its data register,
+  // or a back-to-back dependent instruction) gets a stale/zero value.
+  def forwardID(srcReg: UInt, raw: UInt): UInt = {
+    val fromExMem = ex_mem_valid && ex_mem_regWrite && ex_mem_rd === srcReg && srcReg =/= 0.U
+    val fromMemWb = mem_wb_valid && mem_wb_regWrite && mem_wb_rd === srcReg && srcReg =/= 0.U
+
+    // Priority: value currently in EX/MEM latch (closest to completion, i.e. the ALU
+    // result about to be written) beats an older value sitting in MEM/WB. Note: if the
+    // producing instruction is still in ID/EX (not yet computed), that's a load-use
+    // hazard handled separately by the stall logic below, not by forwarding.
+    MuxCase(raw, Seq(
+      fromExMem -> ex_mem_result,
+      fromMemWb -> mem_wb_result
+    ))
+  }
+
+  val fwdA = forwardID(rs1, rawA)
+  val fwdB = forwardID(rs2, rawB)
+
+  // Hazard detection: stall one cycle on load-use.
+  // NOTE: this must be checked against the *forwarding-eligible* source regs in ID,
+  // using id_ex_rd/id_ex_memRead (the instruction currently in EX). This is
+  // unchanged/still correct as originally written.
   val loadUseHazard = id_ex_memRead && (id_ex_rd === rs1 || id_ex_rd === rs2) && if_id_valid
   stall := loadUseHazard
 
   when(!stall) {
     id_ex_rd        := rd
     id_ex_op        := opcode
-    id_ex_a         := rawA
-    id_ex_b         := rawB
+    id_ex_a         := fwdA
+    id_ex_b         := fwdB
     id_ex_rs1       := rs1
     id_ex_rs2       := rs2
     id_ex_imm       := immExt
@@ -110,7 +135,8 @@ class PipelineCpu extends Module {
     id_ex_memRead  := false.B
   }
 
-  // ---- EX ---- (with forwarding from EX/MEM and MEM/WB)
+  // ---- EX ---- (with forwarding from EX/MEM and MEM/WB, in case a value changes
+  // between ID and EX, e.g. due to a stall bubble re-reading old latched operands)
   def forward(srcReg: UInt, raw: UInt): UInt = {
     val fromExMem = ex_mem_valid && ex_mem_regWrite && ex_mem_rd === srcReg && srcReg =/= 0.U
     val fromMemWb = mem_wb_valid && mem_wb_regWrite && mem_wb_rd === srcReg && srcReg =/= 0.U
