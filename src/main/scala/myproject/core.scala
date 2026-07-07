@@ -5,28 +5,28 @@ import chisel3.util._
 // Simple custom ISA:
 // [31:29] opcode  [28:26] rs1  [25:23] rs2  [22:20] rd  [19:0] imm
 // opcodes: 0=ADD 1=SUB 2=AND 3=OR 4=LOAD 5=STORE 6=BEQ 7=ADDI
-//
-// *** THIS FILE INTENTIONALLY CONTAINS A HIDDEN BUG FOR VERIFICATION-PIPELINE TESTING ***
-// See the "BUG" comment near loadUseHazard below. Do not use this as your real source.
 
 class PipelineCpu extends Module {
   val io = IO(new Bundle {
-    val debugRegOut = Output(UInt(32.W))
+    val debugRegOut  = Output(UInt(32.W)) // r6
+    val debugReg7Out = Output(UInt(32.W)) // r7 -- added to observe the rs2 load-use hazard case
   })
 
   val regFile = Mem(8, UInt(32.W))
   val dataMem = Mem(256, UInt(32.W))
   val instrMem = VecInit(Seq(
-    Cat(7.U(3.W), 0.U(3.W), 0.U(3.W), 1.U(3.W), 5.U(20.W)),   // ADDI r1, r0, 5
-    Cat(7.U(3.W), 0.U(3.W), 0.U(3.W), 2.U(3.W), 10.U(20.W)),  // ADDI r2, r0, 10
-    Cat(0.U(3.W), 1.U(3.W), 2.U(3.W), 3.U(3.W), 0.U(20.W)),   // ADD  r3, r1, r2
-    Cat(1.U(3.W), 3.U(3.W), 1.U(3.W), 4.U(3.W), 0.U(20.W)),   // SUB  r4, r3, r1
-    Cat(0.U(3.W), 4.U(3.W), 4.U(3.W), 5.U(3.W), 0.U(20.W)),   // ADD  r5, r4, r4
-    Cat(5.U(3.W), 0.U(3.W), 5.U(3.W), 0.U(3.W), 0.U(20.W)),   // STORE mem[0] = r5
-    Cat(4.U(3.W), 0.U(3.W), 0.U(3.W), 6.U(3.W), 0.U(20.W)),   // LOAD  r6 = mem[0]
+    Cat(7.U(3.W), 0.U(3.W), 0.U(3.W), 1.U(3.W), 5.U(20.W)),   // 0: ADDI r1, r0, 5
+    Cat(7.U(3.W), 0.U(3.W), 0.U(3.W), 2.U(3.W), 10.U(20.W)),  // 1: ADDI r2, r0, 10
+    Cat(0.U(3.W), 1.U(3.W), 2.U(3.W), 3.U(3.W), 0.U(20.W)),   // 2: ADD  r3, r1, r2
+    Cat(1.U(3.W), 3.U(3.W), 1.U(3.W), 4.U(3.W), 0.U(20.W)),   // 3: SUB  r4, r3, r1
+    Cat(0.U(3.W), 4.U(3.W), 4.U(3.W), 5.U(3.W), 0.U(20.W)),   // 4: ADD  r5, r4, r4
+    Cat(5.U(3.W), 0.U(3.W), 5.U(3.W), 0.U(3.W), 0.U(20.W)),   // 5: STORE mem[0] = r5
+    Cat(4.U(3.W), 0.U(3.W), 0.U(3.W), 6.U(3.W), 0.U(20.W)),   // 6: LOAD  r6 = mem[0]
+    Cat(0.U(3.W), 0.U(3.W), 6.U(3.W), 7.U(3.W), 0.U(20.W)),   // 7: ADD   r7, r0, r6  <-- rs2 load-use hazard!
   ).map(_(31, 0)))
 
-  val pcReg = RegInit(0.U(log2Ceil(7).W))
+  // ---- Pipeline registers ----
+  val pcReg = RegInit(0.U(log2Ceil(instrMem.length).W))
   val if_id_pc  = RegInit(0.U(8.W))
   val if_id_ir  = RegInit(0.U(32.W))
   val if_id_valid = RegInit(false.B)
@@ -39,7 +39,7 @@ class PipelineCpu extends Module {
   val id_ex_rs2   = Reg(UInt(3.W))
   val id_ex_imm   = Reg(UInt(32.W))
   val id_ex_valid = RegInit(false.B)
-  val id_ex_regWrite = RegInit(false.B)
+  val id_ex_regWrite = RegInit(false.W)
   val id_ex_memWrite = RegInit(false.B)
   val id_ex_memRead  = RegInit(false.B)
 
@@ -101,17 +101,8 @@ class PipelineCpu extends Module {
   val fwdA = forwardID(rs1, rawA)
   val fwdB = forwardID(rs2, rawB)
 
-  // *** BUG (hidden) ***
-  // Load-use hazard detection only checks rs1, silently dropping the rs2 check.
-  // This is syntactically and structurally perfect Chisel: it elaborates cleanly,
-  // lowers to fully legal FIRRTL/Verilog, and firtool will never flag it because
-  // there is nothing structurally wrong -- it's just semantically incomplete.
-  // A load followed by an instruction that consumes the loaded value only via rs2
-  // (e.g. `ADD rX, rY, r6` right after `LOAD r6, ...`) will read stale/garbage data
-  // instead of stalling. The provided PipelineCpuTest program never puts a loaded
-  // register in the rs2 position of the very next instruction, so this bug produces
-  // a bit-for-bit identical debugRegOut=20 result and the existing test PASSES.
-  val loadUseHazard = id_ex_memRead && (id_ex_rd === rs1) && if_id_valid
+  // Hazard detection: stall one cycle on load-use, checking BOTH rs1 and rs2.
+  val loadUseHazard = id_ex_memRead && (id_ex_rd === rs1 || id_ex_rd === rs2) && if_id_valid
   stall := loadUseHazard
 
   when(!stall) {
@@ -182,7 +173,8 @@ class PipelineCpu extends Module {
     regFile.write(mem_wb_rd, mem_wb_result)
   }
 
-  io.debugRegOut := regFile.read(6.U)
+  io.debugRegOut  := regFile.read(6.U)
+  io.debugReg7Out := regFile.read(7.U)
 }
 
 object PipelineCpuMain extends App with emitrtl.Toplevel {
