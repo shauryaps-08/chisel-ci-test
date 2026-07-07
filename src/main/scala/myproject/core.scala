@@ -39,7 +39,7 @@ class PipelineCpu extends Module {
   val id_ex_rs2   = Reg(UInt(3.W))
   val id_ex_imm   = Reg(UInt(32.W))
   val id_ex_valid = RegInit(false.B)
-  val id_ex_regWrite = RegInit(false.W)
+  val id_ex_regWrite = RegInit(false.B)
   val id_ex_memWrite = RegInit(false.B)
   val id_ex_memRead  = RegInit(false.B)
 
