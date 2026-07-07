@@ -24,7 +24,7 @@ class PipelineCpu extends Module {
   ).map(_(31, 0)))
 
   // ---- Pipeline registers ----
-  val pcReg     = RegInit(0.U(8.W))
+  val pcReg = RegInit(0.U(log2Ceil(7).W))
   val if_id_pc  = RegInit(0.U(8.W))
   val if_id_ir  = RegInit(0.U(32.W))
   val if_id_valid = RegInit(false.B)
