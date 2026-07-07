@@ -20,5 +20,5 @@ rtl: check-firtool ## Generates Verilog code from Chisel sources (output to ./ge
 check: test
 .PHONY: test
 test: check-firtool ## Run Chisel tests
-	$(MILL) $(project).test.testOnly myproject.GCDSpec
+	$(MILL) $(project).test
 	@echo "The VCD file is generated in ./test_run_dir/testname directories."
