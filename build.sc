@@ -170,6 +170,7 @@ object myproject
     override def ivyDeps = super.ivyDeps() ++ Agg(
       playground_build.ivys.scalatest,
       playground_build.ivys.oslib,
+      ivy"edu.berkeley.cs::chiseltest:6.0.0",
     )
   }
 }
