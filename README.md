@@ -1,4 +1,4 @@
-# chisel-ci-test
+## Chisel-RTL Pipeline
 
 A ready-to-use Chisel → RTL pipeline. Clone this repo, drop in your Chisel
 design, push — a compiled SystemVerilog release shows up automatically.
@@ -61,11 +61,7 @@ object gcd16 extends App with emitrtl.Toplevel {
   firrtl2sv()
 }
 
-object fullAdderTarget extends App with emitrtl.Toplevel {
-  lazy val topModule = new FullAdder
-  chisel2firrtl()
-  firrtl2sv()
-}
+
 ```
 
 The build scans every file under `src/main/scala/myproject/` for this
