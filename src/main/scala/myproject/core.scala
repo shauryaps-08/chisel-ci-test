@@ -4,7 +4,7 @@ import chisel3.util._
 
 // Simple custom ISA:
 // [31:29] opcode  [28:26] rs1  [25:23] rs2  [22:20] rd  [19:0] imm
-// opcodes: 0=ADD 1=SUB 2=AND 3=OR 4=LOAD 5=STORE 6=BEQ 7=ADDI
+// opcodes: 0=ADD 1=SUB 2=AND 3=OR 4=LOAD 5=STORE 6=BEQ 7=ADD
 
 class PipelineCpu extends Module {
   val io = IO(new Bundle {
