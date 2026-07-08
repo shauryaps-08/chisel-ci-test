@@ -1,5 +1,6 @@
 package myproject
 import chisel3._
+import chisel3.util._
 
 class SystemB(width: Int) extends Module {
   val io = IO(new Bundle {
