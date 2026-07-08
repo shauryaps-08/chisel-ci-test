@@ -13,7 +13,7 @@ rtl: check-firtool
 		done; \
 	done | sort -u); \
 
-        echo "No 'object ... extends App' entry points found in src/main/scala/$(project)"; \
+	echo "No 'object ... extends App' entry points found in src/main/scala/$(project)"; \
 
         exit 1; \
 	fi; \
