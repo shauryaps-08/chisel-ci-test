@@ -1,5 +1,5 @@
 package myproject
-import chisel3._
+
 
 object TopMain extends App with emitrtl.Toplevel {
   val choice = if (args.length == 0) "A" else args(0)
