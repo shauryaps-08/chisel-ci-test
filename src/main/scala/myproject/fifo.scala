@@ -11,3 +11,4 @@ class SimpleFifo(width: Int, depth: Int) extends Module {
   q.io.enq <> io.enq
   io.deq <> q.io.deq
 }
+//.
