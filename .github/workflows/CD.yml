@@ -32,6 +32,14 @@ jobs:
           repository: morphingmachines/playground
           path: playground
 
+      - name: Cache playground submodules
+        uses: actions/cache@v4
+        with:
+          path: playground/dependencies
+          key: playground-deps-${{ hashFiles('playground/.gitmodules') }}
+          restore-keys: |
+            playground-deps-
+
       - name: Fix SSH URLs and fetch submodules
         working-directory: playground
         run: |
