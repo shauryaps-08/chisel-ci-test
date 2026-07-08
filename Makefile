@@ -6,15 +6,20 @@ MILL = ./../playground/mill
 
 # Targets
 .PHONY: rtl
-rtl: check-firtool ## Generates Verilog code from Chisel sources (output to ./generated_sv_dir)
-	@objs=$$(grep -rhoP '(?<=object )\w+(?=\s+extends\s+App)' src/main/scala/$(project) | sort -u); \
-	if [ -z "$$objs" ]; then \
+rtl: check-firtool
+	@fqns=$$(for f in $$(find src/main/scala/$(project) -name '*.scala'); do \
+		pkg=$$(grep -oP '(?<=^package\s)[\w.]+' "$$f" | head -1); \
+		grep -oP '(?<=object\s)\w+(?=\s+extends\s+App)' "$$f" | while read -r obj; do \
+			echo "$$pkg.$$obj"; \
+		done; \
+	done | sort -u); \
+	if [ -z "$$fqns" ]; then \
 		echo "No 'object ... extends App' entry points found in src/main/scala/$(project)"; \
 		exit 1; \
 	fi; \
-	for obj in $$objs; do \
-		echo "==> Generating RTL for $(project).$$obj"; \
-		$(MILL) $(project).runMain $(project).$$obj || exit 1; \
+	for fqn in $$fqns; do \
+		echo "==> Generating RTL for $$fqn"; \
+		$(MILL) $(project).runMain $$fqn || exit 1; \
 	done
 
 check: test
