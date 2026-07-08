@@ -1,6 +1,5 @@
 name: CI
-on: [push,pull_request]
-
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,11 +55,21 @@ jobs:
 
       - name: Install Mill
         run: |
-          curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
+          curl -L https://raw.githubusercontent.com/lefou/millw/main/millw > mill
           chmod +x mill
           sudo mv mill /usr/local/bin/mill
-          echo "0.11.6" > playground/.mill-version
-          echo "0.11.6" > myproject/.mill-version
+
+          DEFAULT_MILL_VERSION="0.11.6"
+
+          if [ ! -f playground/.mill-version ]; then
+            echo "$DEFAULT_MILL_VERSION" > playground/.mill-version
+          fi
+          if [ ! -f myproject/.mill-version ]; then
+            echo "$DEFAULT_MILL_VERSION" > myproject/.mill-version
+          fi
+
+          echo "playground .mill-version: $(cat playground/.mill-version)"
+          echo "myproject  .mill-version: $(cat myproject/.mill-version)"
 
       - name: Cache firtool
         uses: actions/cache@v4
@@ -87,5 +96,3 @@ jobs:
       - name: make lint
         working-directory: myproject
         run: make lint
-
-      
