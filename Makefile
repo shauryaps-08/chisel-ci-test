@@ -15,7 +15,7 @@ rtl: check-firtool
 
 	echo "No 'object ... extends App' entry points found in src/main/scala/$(project)"; \
 
-        exit 1; \
+    exit 1; \
 	fi; \
 	for fqn in $$fqns; do \
 		echo "==> Generating RTL for $$fqn"; \
