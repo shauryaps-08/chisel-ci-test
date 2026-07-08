@@ -1,24 +1,14 @@
 name: CD
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
-    branches:
-      - main
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag to use when running manually (e.g. v0.1.0-manual)'
+        description: 'Release tag to use (e.g. v0.1.0)'
         required: true
         default: 'manual-build'
 
 jobs:
   release:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: production
     concurrency: rtl-release
@@ -26,27 +16,26 @@ jobs:
       contents: write
 
     steps:
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
+
+      - name: Add GitHub to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
       - name: Checkout playground
         uses: actions/checkout@v4
         with:
           repository: morphingmachines/playground
           path: playground
+          ssh-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
 
-      - name: Cache playground submodules
-        uses: actions/cache@v4
-        with:
-          path: |
-            playground/dependencies
-            playground/.git/modules
-          key: playground-deps-${{ hashFiles('playground/.gitmodules') }}
-          restore-keys: |
-            playground-deps-
-
-      - name: Fix SSH URLs and fetch submodules
+      - name: Fetch submodules (SSH)
         working-directory: playground
         run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
           git submodule sync
           git submodule update --init --depth=1 dependencies/cde
           git submodule update --init --depth=1 dependencies/diplomacy
@@ -88,11 +77,17 @@ jobs:
 
       - name: Install Mill
         run: |
-          curl -L https://raw.githubusercontent.com/lefou/millw/0.4.11/millw > mill
+          curl -L https://raw.githubusercontent.com/lefou/millw/main/millw > mill
           chmod +x mill
           sudo mv mill /usr/local/bin/mill
-          echo "0.11.6" > playground/.mill-version
-          echo "0.11.6" > myproject/.mill-version
+
+          DEFAULT_MILL_VERSION="0.11.6"
+          if [ ! -f playground/.mill-version ]; then
+            echo "$DEFAULT_MILL_VERSION" > playground/.mill-version
+          fi
+          if [ ! -f myproject/.mill-version ]; then
+            echo "$DEFAULT_MILL_VERSION" > myproject/.mill-version
+          fi
 
       - name: Cache firtool
         uses: actions/cache@v4
@@ -116,17 +111,6 @@ jobs:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make rtl
 
-      - name: Determine release tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag_name=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag_name=auto-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Package RTL
         working-directory: myproject
         run: |
@@ -134,12 +118,12 @@ jobs:
             echo "No .sv files were generated — aborting release."
             exit 1
           fi
-          tar -czvf ../generated-rtl-${{ steps.tag.outputs.tag_name }}.tar.gz generated_sv_dir/
+          tar -czvf ../generated-rtl-${{ github.event.inputs.tag_name }}.tar.gz generated_sv_dir/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          name: RTL Release ${{ steps.tag.outputs.tag_name }}
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: RTL Release ${{ github.event.inputs.tag_name }}
           files: generated-rtl-*.tar.gz
           generate_release_notes: true
