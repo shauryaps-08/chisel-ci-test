@@ -86,7 +86,7 @@ class PipelineCpu extends Module {
   val isStore = opcode === 5.U
   val regWriteD = !isStore && if_id_valid
 
-  val rawA = regFiile.read(rs1)
+  val rawA = regFile.read(rs1)
   val rawB = regFile.read(rs2)
 
   def forwardID(srcReg: UInt, raw: UInt): UInt = {
