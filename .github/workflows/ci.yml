@@ -1,29 +1,80 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
 jobs:
-  build:
+  # ---------------------------------------------------------------
+  # Runs first, fast, on pull_request events only. Fails loudly and
+  # early if the PR can't be cleanly merged into its base branch --
+  # distinct from (and separate from) a test/lint failure, so the
+  # PR author immediately knows "resolve conflicts" vs "fix my code".
+  # ---------------------------------------------------------------
+  check-mergeable:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - name: Check PR is mergeable (no conflicts with base branch)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // GitHub computes mergeable status asynchronously; it can briefly
+            // be null right after a push. Poll a few times before failing.
+            let pr;
+            for (let i = 0; i < 5; i++) {
+              const res = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+              });
+              pr = res.data;
+              if (pr.mergeable !== null) break;
+              await new Promise(r => setTimeout(r, 3000));
+            }
+            if (pr.mergeable === false) {
+              core.setFailed(
+                `This PR has merge conflicts with '${pr.base.ref}' and cannot be ` +
+                `built or merged until they are resolved. Rebase or merge '${pr.base.ref}' ` +
+                `into your branch and push again.`
+              );
+            } else if (pr.mergeable === null) {
+              core.warning("GitHub could not determine mergeable status in time -- proceeding, but re-check before merging.");
+            }
+
+  build:
+    needs: [check-mergeable]
+    # Always run on a direct push to main; on a PR, only run once the
+    # mergeable check above has passed (job is skipped, not failed, on push).
+    if: always() && (github.event_name != 'pull_request' || needs.check-mergeable.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      # -----------------------------------------------------------
+      # SSH-based auth instead of the HTTPS URL-rewrite used previously.
+      # Requires CI_SSH_PRIVATE_KEY (a deploy key with read access to
+      # morphingmachines/playground and its submodules) as a repo secret.
+      # -----------------------------------------------------------
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
+
+      - name: Add GitHub to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
       - name: Checkout playground
         uses: actions/checkout@v4
         with:
           repository: morphingmachines/playground
           path: playground
+          ssh-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
 
-      - name: Cache playground submodules
-        uses: actions/cache@v4
-        with:
-          path: | 
-           playground/dependencies
-           playground/.git/modules
-          key: playground-deps-${{ hashFiles('playground/.gitmodules') }}
-          restore-keys: |
-            playground-deps-
-      - name: Fix SSH URLs and fetch submodules
+      - name: Fetch submodules (SSH)
         working-directory: playground
         run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
           git submodule sync
           git submodule update --init --depth=1 dependencies/cde
           git submodule update --init --depth=1 dependencies/diplomacy
@@ -62,6 +113,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      # Respects an existing .mill-version in either repo instead of overwriting it
       - name: Install Mill
         run: |
           curl -L https://raw.githubusercontent.com/lefou/millw/main/millw > mill
@@ -69,16 +121,12 @@ jobs:
           sudo mv mill /usr/local/bin/mill
 
           DEFAULT_MILL_VERSION="0.11.6"
-
           if [ ! -f playground/.mill-version ]; then
             echo "$DEFAULT_MILL_VERSION" > playground/.mill-version
           fi
           if [ ! -f myproject/.mill-version ]; then
             echo "$DEFAULT_MILL_VERSION" > myproject/.mill-version
           fi
-
-          echo "playground .mill-version: $(cat playground/.mill-version)"
-          echo "myproject  .mill-version: $(cat myproject/.mill-version)"
 
       - name: Cache firtool
         uses: actions/cache@v4
@@ -101,6 +149,26 @@ jobs:
         env:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make check
+
+      # -----------------------------------------------------------
+      # Publishes test results as inline PR annotations (pass/fail per
+      # test, with file/line on failure) so the PR owner sees exactly
+      # where it broke without digging through the raw log.
+      #
+      # NOTE: this requires ScalaTest to actually emit JUnit-XML output.
+      # If build.sc doesn't already configure this, mill's test task
+      # needs a JUnit XML reporter added (e.g. via `-o` reporter config
+      # or the mill-junit plugin) -- flagging this as a dependency to
+      # confirm/add rather than assuming it's already wired up.
+      # -----------------------------------------------------------
+      - name: Publish test results to PR
+        uses: dorny/test-reporter@v1
+        if: always() && github.event_name == 'pull_request'
+        with:
+          name: ChiselTest Results
+          path: 'myproject/out/**/test-report.xml'
+          reporter: java-junit
+          fail-on-error: false
 
       - name: make lint
         working-directory: myproject
