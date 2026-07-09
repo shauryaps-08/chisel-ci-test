@@ -11,5 +11,5 @@ jobs:
     # This is what makes "update CI logic once on main, every branch picks
     # it up automatically" actually work -- the branch only needs this thin
     # trigger file, which rarely if ever needs to change.
-    uses: shauryaps-08/chisel-ci-test/.github/workflows/reusable-ci.yml@main
+    uses: shauryaps-08/chisel-ci-test/.github/workflows/ci.yml@main
     secrets: inherit
