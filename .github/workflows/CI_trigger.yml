@@ -1,0 +1,13 @@
+name: CI
+# Triggers on every push (any branch) and every PR event.
+# @main permanently pins this to always read reusable-ci.yml from main --
+# this is what makes "update the CI logic once, every branch picks it up
+# automatically" work. Only edit the org/repo below, nothing else.
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  ci:
+    uses: YOUR_ORG/YOUR_REPO/.github/workflows/reusable-ci.yml@main
+    secrets: inherit
