@@ -6,9 +6,9 @@ class SystemA(width: Int) extends Module {
   val io = IO(new Bundle {
     val in  = Flipped(Decoupled(UInt(width.W)))
     val sel = Input(UInt(2.W))
-    val out = Vec(4, Decoupled(UInt(width.W)))
+    val out = Vec(8, Decoupled(UInt(width.W)))
   })
-  val router = Module(new Router(width, 4)) // SystemA depends on Router
+  val router = Module(new Router(width, 2)) // SystemA depends on Routers
   router.io.in  <> io.in
   router.io.sel := io.sel
   router.io.out <> io.out
