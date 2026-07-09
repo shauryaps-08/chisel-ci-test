@@ -9,5 +9,5 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   ci:
-    uses: YOUR_ORG/YOUR_REPO/.github/workflows/reusable-ci.yml@main
+    uses: shauryaps-08/chisel-ci-test/.github/workflows/reusable-ci.yml@main
     secrets: inherit
