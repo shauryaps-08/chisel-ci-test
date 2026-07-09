@@ -1,4 +1,4 @@
-name:  CI 
+name: Reusable CI Logic
 on:
   workflow_call:
     secrets:
