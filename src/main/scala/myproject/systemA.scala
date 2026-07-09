@@ -4,7 +4,7 @@ import chisel3.util._
 
 class SystemA(width: Int) extends Module {
   val io = IO(new Bundle {
-    val in  = Flipped(Decoupled(Int(width.W)))
+    val in  = Flipped(Decoupled(UInt(width.W)))
     val sel = Input(UInt(2.W))
     val out = Vec(4, Decoupled(UInt(width.W)))
   })
