@@ -131,15 +131,7 @@ jobs:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make check
 
-      - name: Publish test results to PR
-        uses: dorny/test-reporter@v1
-        if: always() && github.event_name == 'pull_request'
-        with:
-          name: ChiselTest Results
-          path: 'out/**/test-report.xml'
-          working-directory: myproject
-          reporter: java-junit
-          fail-on-error: false
+  
 
       - name: make lint
         working-directory: myproject
