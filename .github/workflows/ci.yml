@@ -1,8 +1,9 @@
-name: CI
+name:  CI 
 on:
-  push:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_call:
+    secrets:
+      CI_SSH_PRIVATE_KEY:
+        required: false
 
 jobs:
   # ---------------------------------------------------------------
@@ -19,8 +20,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // GitHub computes mergeable status asynchronously; it can briefly
-            // be null right after a push. Poll a few times before failing.
             let pr;
             for (let i = 0; i < 5; i++) {
               const res = await github.rest.pulls.get({
@@ -44,8 +43,6 @@ jobs:
 
   build:
     needs: [check-mergeable]
-    # Always run on a direct push to main; on a PR, only run once the
-    # mergeable check above has passed (job is skipped, not failed, on push).
     if: always() && (github.event_name != 'pull_request' || needs.check-mergeable.result == 'success')
     runs-on: ubuntu-latest
     steps:
@@ -98,7 +95,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
-      # Respects an existing .mill-version in either repo instead of overwriting it
       - name: Install Mill
         run: |
           curl -L https://raw.githubusercontent.com/lefou/millw/main/millw > mill
@@ -135,23 +131,13 @@ jobs:
           JAVA_OPTS: "-Xmx4g -Xss8m"
         run: make check
 
-      # -----------------------------------------------------------
-      # Publishes test results as inline PR annotations (pass/fail per
-      # test, with file/line on failure) so the PR owner sees exactly
-      # where it broke without digging through the raw log.
-      #
-      # NOTE: this requires ScalaTest to actually emit JUnit-XML output.
-      # If build.sc doesn't already configure this, mill's test task
-      # needs a JUnit XML reporter added (e.g. via `-o` reporter config
-      # or the mill-junit plugin) -- flagging this as a dependency to
-      # confirm/add rather than assuming it's already wired up.
-      # -----------------------------------------------------------
       - name: Publish test results to PR
         uses: dorny/test-reporter@v1
         if: always() && github.event_name == 'pull_request'
         with:
           name: ChiselTest Results
-          path: 'myproject/out/**/test-report.xml'
+          path: 'out/**/test-report.xml'
+          working-directory: myproject
           reporter: java-junit
           fail-on-error: false
 
