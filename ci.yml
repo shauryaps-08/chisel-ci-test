@@ -12,5 +12,5 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   ci:
-    uses: YOUR_ORG/YOUR_REPO/.github/workflows/reusable-ci.yml@HER_BRANCH_NAME
+    uses: YOUR_ORG/YOUR_REPO/.github/workflows/reusable-ci.yml@BRANCH_NAME
     secrets: inherit
