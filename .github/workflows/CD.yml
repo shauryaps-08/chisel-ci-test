@@ -16,26 +16,17 @@ jobs:
       contents: write
 
     steps:
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
-
-      - name: Add GitHub to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-
       - name: Checkout playground
         uses: actions/checkout@v4
         with:
           repository: morphingmachines/playground
           path: playground
-          ssh-key: ${{ secrets.CI_SSH_PRIVATE_KEY }}
 
-      - name: Fetch submodules (SSH)
+      - name: Fix SSH URLs and fetch submodules
         working-directory: playground
         run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
           git submodule sync
           git submodule update --init --depth=1 dependencies/cde
           git submodule update --init --depth=1 dependencies/diplomacy
