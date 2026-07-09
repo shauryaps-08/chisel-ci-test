@@ -1,0 +1,123 @@
+name: CD
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag name'
+        required: false
+
+jobs:
+  release:
+    # Only proceed automatically if this was triggered by CI finishing
+    # successfully -- a failed CI run completing does not trigger a release.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      # TODO(owner): identical setup block to reusable-ci.yml's `build` job
+      # -- deliberately duplicated, not shared, so CD runs with the exact
+      # same pinned tool versions that were validated during CI. Same
+      # playground/submodule TODOs from reusable-ci.yml apply here too.
+      - name: Checkout playground
+        uses: actions/checkout@v4
+        with:
+          repository: morphingmachines/playground
+          path: playground
+
+      - name: Fix SSH URLs and fetch submodules
+        working-directory: playground
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+          git submodule sync
+          git submodule update --init --depth=1 dependencies/cde
+          git submodule update --init --depth=1 dependencies/diplomacy
+          git submodule update --init --depth=1 dependencies/berkeley-hardfloat
+          git submodule update --init --depth=1 dependencies/rocket-chip
+          git submodule update --init --depth=1 dependencies/emitrtl
+          git submodule update --init --depth=1 dependencies/chipyard
+
+      - name: Checkout myproject
+        uses: actions/checkout@v4
+        with:
+          path: myproject
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Mill
+        run: |
+          curl -L https://raw.githubusercontent.com/lefou/millw/main/millw > mill
+          chmod +x mill
+          sudo mv mill /usr/local/bin/mill
+
+      - name: Install firtool
+        run: |
+          if ! command -v firtool &> /dev/null; then
+            wget -q https://github.com/llvm/circt/releases/download/firtool-1.62.1/firrtl-bin-linux-x64.tar.gz
+            tar -xzf firrtl-bin-linux-x64.tar.gz
+            sudo mv firtool-1.62.1/bin/firtool /usr/local/bin/firtool
+            sudo chmod +x /usr/local/bin/firtool
+          fi
+
+      - name: Generate RTL (from manifest)
+        working-directory: myproject
+        run: make rtl
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "tag_name=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag_name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=auto-$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package RTL
+        working-directory: myproject
+        run: |
+          GEN_DIR="generated_sv_dir" # TODO(owner): confirm this matches make rtl's real output path
+          if [ -z "$(find "$GEN_DIR" -name '*.sv' -print -quit 2>/dev/null)" ]; then
+            echo "ERROR: no .sv files found in $GEN_DIR -- aborting release" >&2
+            exit 1
+          fi
+          tar -czf "generated-rtl-${{ steps.tag.outputs.tag_name }}.tar.gz" -C "$GEN_DIR" .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          generate_release_notes: true
+          files: myproject/generated-rtl-${{ steps.tag.outputs.tag_name }}.tar.gz
+
+      # ---------------------------------------------------------------
+      # AMI artifact sync -- NOT wired live. Left here as a concrete,
+      # ready-to-uncomment example per the "artifacts should also show up
+      # on the AMI instance" requirement. Deliberately not enabled because:
+      #   - it needs real secrets (EC2_INSTANCE_ID, AWS OIDC role) that
+      #     don't exist in this template repo
+      #   - it's a decision the repo owner should make explicitly, not
+      #     something that activates itself when this file is dropped in
+      # TODO(owner): uncomment and fill in secrets to enable.
+      # ---------------------------------------------------------------
+      # - name: Sync generated RTL to AMI instance
+      #   run: |
+      #     aws ssm send-command \
+      #       --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters commands='[
+      #         "mkdir -p /opt/myproject/latest_artifacts",
+      #         "curl -L -o /tmp/latest.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag_name }}/generated-rtl-${{ steps.tag.outputs.tag_name }}.tar.gz",
+      #         "tar -xzf /tmp/latest.tar.gz -C /opt/myproject/latest_artifacts"
+      #       ]' \
+      #       --output text

@@ -1,0 +1,16 @@
+name: CI
+# ---------------------------------------------------------------
+# BRANCH-TESTING MODE: the `uses:` line below points at HER_BRANCH_NAME,
+# not @main. This is deliberate -- @main would always read
+# reusable-ci.yml from main, ignoring whatever she pushed to her branch.
+# Once testing is done and this is ready to merge into main for real,
+# change HER_BRANCH_NAME back to `main` (see step 5 in the instructions).
+# ---------------------------------------------------------------
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  ci:
+    uses: YOUR_ORG/YOUR_REPO/.github/workflows/reusable-ci.yml@HER_BRANCH_NAME
+    secrets: inherit
